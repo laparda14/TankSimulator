@@ -28,10 +28,10 @@ const year = new Date().getFullYear();
 const objFg = 1;
 const maxPlayerHealth = 200;
 const difficulty = [{"speedModifier": 1.2, "damageModifier": 1.3}, {"speedModifier": 1, "damageModifier": 1}, {"speedModifier": 1, "damageModifier": 0.7}];
-const tips = ["The higher your score, the more coins you earn!", "HE shells are slow and deal splash damage", "AP shells are fast but require more accuracy", "Use your artillery strikes wisely", "Tanks create a large explosion when killed", "Make sure to stop moving to shoot accurately"]
+const tips = ["Make sure to stop to shoot accurately", "Get ammo by killing enemy tanks", "Tanks create a large explosion when killed", "HE shells are slow and deal splash damage", "AP shells are fast but require more accuracy", "Use your artillery strikes wisely", "The higher your score, the more coins you earn!"]
 
 var gameState = "menu";
-
+    
 //Terrain Definitions and Setup
 var tMomentum = 0;
 var tY = h/2;
@@ -59,16 +59,22 @@ var hudValues = {health:null, ammo:null};
 var score = 0;
 var topScore = getCookie("highScore", 0, true);
 var coins = getCookie("coins", 0, true);
-var tipIndex = Math.round(rand(0, tips.length-1));
+var tipIndex = getCookie("tipindex", 0, true)
 var currentDiff = 1;
 const diffIndex = ["Easy", "Med", "Hard"];
 var displayControls = false;
+    
+if (performance.navigation.type == performance.navigation.TYPE_RELOAD) {
+    tipIndex += 1;
+    if (tipIndex >= tips.length) {tipIndex = 0;}
+    setCookie("tipindex", tipIndex);
+}    
 
 //Ballistic Definitions
 var shells = [];
 var artilleryMode = false;
 var artilleryCooldown = 0;
-const artilleryRecharge = 180; //Seconds between available arty strike    
+const artilleryRecharge = 120; //Seconds between available arty strike    
     
 //Image Definitions
 const earthtoneTankImg = new Image();
@@ -119,10 +125,11 @@ var sounds = [];
 //Defining buttons and referencing them in an array to loop through    
 var centerRestart = new Button(w/2-130, h/2+60, 130*2, 70, false, restart, drawCenterRestart);
 var bottomRightPause = new Button(w-80, h-80, 70, 70, false, pause, drawBottomRightPause);
+var bottomRightRestart = new Button(w-280, h-80, 270, 70, false, restart, drawBottomRightRestart);
 var bottomLeftMenu = new Button(10, h-80, 300, 70, false, toggleMenu, drawBottomLeftMenu);
 var centerPlay = new Button(w/2-200, h/2-150, 400, 110, true, toggleMenu, drawCenterPlay);
 var artillery = new Button(10, h-80, 70, 70, false, playerAtrillery, drawAtrillery);
-var centerPausedRestart = new Button(w/2-290, h/2-60, 290*2, 120, false, restart, drawCenterPausedRestart);
+var centerPausedResume = new Button(w/2-230, h/2-60, 230*2, 120, false, pause, drawCenterPausedResume);
 var shellSelectHE = new Button(10, 100, 70, 70, false, selectHE, drawShellSelectHE);
 var shellSelectAP = new Button(10, 180, 70, 70, false, selectAP, drawShellSelectAP);
 var pausedMute = new Button(10, 100, 70, 70, false, toggleMute, drawPausedMute);
@@ -134,7 +141,7 @@ var skinLeft = new Button(w/2-140, h/2+75, 40, 50, true, decSkin, drawLeftSkin);
 var controlsMenu = new Button(10, 90, 70, 70, true, toggleDisplayControls, drawMenuControls);
 var menuBack = new Button(10, h-80, 70, 70, false, toggleDisplayControls, drawMenuBack);
 
-const buttons = [centerRestart, bottomRightPause, bottomLeftMenu, centerPlay, artillery, centerPausedRestart, shellSelectHE, shellSelectAP, pausedMute, menuMute, diffRight, diffLeft, skinRight, skinLeft, controlsMenu, menuBack];
+const buttons = [centerRestart, bottomRightPause, bottomLeftMenu, centerPlay, artillery, centerPausedResume, shellSelectHE, shellSelectAP, pausedMute, menuMute, diffRight, diffLeft, skinRight, skinLeft, controlsMenu, menuBack, bottomRightRestart];
     
 //Keyboard Inputs
 const keyNames = {32: "space", 68: "right", 39: "right", 65: "left", 37: "left", 87: "up", 38: "up", 83: "down", 40: "down", 16: "shift", 69: "increase", 33: "increase", 81: "decrease", 34: "decrease", 80: "pause", 
@@ -296,7 +303,7 @@ function craterMath (x, y, r, offset) {
     for (explosionX = Math.round(x-r); explosionX <= x+r; explosionX++) { //Loop through x values within explosion radius
         let explosionY = y+Math.sqrt(r*r-(explosionX-x)*(explosionX-x)); //Calculate third side of triangle (crater depth) using y^2 = r^2 - x^2 and add that to the y value of the shell
         explosionY -= offset; //Offset crater height to make it more shallow
-        explosionY = Math.min(h-90, explosionY); //Set max depth for crater so it cannot clip through bottom of the map
+        explosionY = Math.min(h-20, explosionY); //Set max depth for crater so it cannot clip through bottom of the map
         if (terrain[explosionX] < explosionY) { //Check is terrain is higher than crater height
             terrain[explosionX] = explosionY; //If so, set terrain to new height
         }
@@ -396,20 +403,24 @@ function drawBottomRightPause () {
     ctx.strokeStyle = "black";
     ctx.strokeRect(w-80, h-80, 70, 70);
     ctx.fillStyle = "white";
+
+    //draw pause button
+    ctx.fillRect(w-65, h-70, 15, 50);
+    ctx.fillRect(w-40, h-70, 15, 50);
+}
     
-    if (gameState == "paused") { //drawing play button
-        ctx.beginPath();
-        ctx.moveTo(w-25, h-45);
-        ctx.lineTo(w-65, h-20);
-        ctx.lineTo(w-65, h-70);
-        ctx.lineTo(w-25, h-45);
-        ctx.fill();
-        bottomLeftMenu.enabled = true; //enable the menu button
-    }
-    else { //draw pause button
-        ctx.fillRect(w-65, h-70, 15, 50);
-        ctx.fillRect(w-40, h-70, 15, 50);
-    }
+function drawBottomRightRestart () {
+    //drawing pause button rectangle
+    ctx.fillStyle = "darkgray";
+    ctx.fillRect(w-280, h-80, 270, 70);
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = "black";
+    ctx.strokeRect(w-280, h-80, w-270, 70);
+    
+    ctx.font = "bold 50px Courier New";
+    ctx.fillStyle = "white";
+    ctx.textAlign = "center";
+    ctx.fillText("Restart", w-270/2-10, h-45);
 }
 
 function drawBottomLeftMenu () {
@@ -533,19 +544,21 @@ function drawAtrillery () {
     ctx.globalAlpha = 1;
 }
 
-function drawCenterPausedRestart () {
+function drawCenterPausedResume () {
     //drawing the restart button box
     ctx.fillStyle = "darkgray";
-    ctx.fillRect(w/2-290, h/2-60, 290*2, 120);
+    ctx.fillRect(w/2-230, h/2-60, 230*2, 120);
     ctx.strokeStyle = "black";
     ctx.lineWidth = 5;
-    ctx.strokeRect(w/2-290, h/2-60, 290*2, 120);
+    ctx.strokeRect(w/2-230, h/2-60, 230*2, 120);
     
     //drawing the restart text
     ctx.font = "bold 100px Courier New";
     ctx.fillStyle = "white";
     ctx.textAlign = "center";
-    ctx.fillText("Restart", w/2, h/2);
+    ctx.fillText("Resume", w/2, h/2);
+    
+    bottomRightRestart.enabled = true; //VERY ANNOYINGLY MOVED HERE AS OTHERWISE INSTANTLY RESTARTS FROM CLICK PERSISTENCE (I THINK)
 }
 
 function drawShellSelectHE () {
@@ -860,6 +873,12 @@ function drawMenu () {
     ctx.lineTo(w/2+Math.cos(0.15)*60, h/2+100-12-Math.sin(0.15)*60);
     ctx.stroke();
     ctx.drawImage(skins[skinIndex], w/2-60, h/2+100-30, 120, 60);
+        
+    line(45, 125, 115, 175, "black", 3.5);
+    ctx.fillStyle = "black";
+    ctx.textAlign = "start";
+    ctx.font = "bold 35px Courier New";
+    ctx.fillText("Controls", 120, 175);
     }
 }
     
@@ -1003,10 +1022,11 @@ function restart () {
     
     centerRestart.enabled = false;
     bottomRightPause.enabled = true;
+    bottomRightRestart.enabled = false;
     bottomLeftMenu.enabled = false;
     centerPlay.enabled = false;
     artillery.enabled = true;
-    centerPausedRestart.enabled = false;
+    centerPausedResume.enabled = false;
     shellSelectHE.enabled = true;
     shellSelectAP.enabled = true;
     pausedMute.enabled = false;
@@ -1055,7 +1075,7 @@ function toggleMenu () {
         bottomLeftMenu.enabled = false;
         centerPlay.enabled = true;
         artillery.enabled = false;
-        centerPausedRestart.enabled = false;
+        centerPausedResume.enabled = false;
         shellSelectHE.enabled = false;
         shellSelectAP.enabled = false;
         pausedMute.enabled = false;
@@ -1065,6 +1085,7 @@ function toggleMenu () {
         skinLeft.enabled = true;
         skinRight.enabled = true;
         controlsMenu.enabled = true;
+        bottomRightRestart.enabled = false;
         
         coins += Math.round(score);
         setCookie("coins", coins)
@@ -1075,7 +1096,9 @@ function toggleMenu () {
             generateCloud(true, true);
         }
         
-        tipIndex = Math.round(rand(0, tips.length-1));
+        tipIndex += 1;
+        if (tipIndex >= tips.length) {tipIndex = 0;}
+        setCookie("tipindex", tipIndex);
     }
 }
 
@@ -1086,19 +1109,25 @@ function pause () {
         
         artillery.enabled = true;
         bottomLeftMenu.enabled = false;
-        centerPausedRestart.enabled = false;
+        centerPausedResume.enabled = false;
         pausedMute.enabled = false;
         shellSelectHE.enabled = true;
         shellSelectAP.enabled = true;
+        bottomRightPause.enabled = true;
+        bottomLeftMenu.enabled = false;
+        bottomRightRestart.enabled = false;
     }
     else {
         gameState = "paused"; //Pausing the game
         
         artillery.enabled = false;
-        centerPausedRestart.enabled = true;
+        centerPausedResume.enabled = true;
         pausedMute.enabled = true;
         shellSelectHE.enabled = false;
         shellSelectAP.enabled = false;
+        bottomRightPause.enabled = false;
+        bottomLeftMenu.enabled = true;
+//      bottomRightRestart.enabled = true; //Moved to centerPausedResume as otherwise click persistence causes instant restart
     }
 }
 
@@ -1252,12 +1281,14 @@ function tankHandler () {
             let innacuracy = 0;
             
             if (gameState != "paused") {
-                if (keys["left"] && x > width+speed && terrain[Math.round(x-width-8)]-terrain[Math.round(x-width-speed*3-8)] < width) {
+//                if (keys["left"] && x > width+speed && terrain[Math.round(x-width-8)]-terrain[Math.round(x-width-speed*3-8)] < width) {
+                if (keys["left"] && x > width+speed) {
                     tank.x -= speed*difficulty[currentDiff]["speedModifier"];    
                     innacuracy += (Math.random()-0.5);
                     particles.push(new Particle(rightX, rightY, a+pi/4, Math.random()*5, "saddlebrown", 3, 5));
                 }
-                else if (keys["right"] && terrain[Math.round(x+width+8)]-terrain[Math.round(x+width+speed*3+8)] < width) { //Don't let the player climb sheer cliffs via elevation delta in front of the tank
+//                else if (keys["right"] && terrain[Math.round(x+width+8)]-terrain[Math.round(x+width+speed*3+8)] < width) { //Don't let the player climb sheer cliffs via elevation delta in front of the tank
+                else if (keys["right"]) {
                     if (x < w/2) {
                         tank.x += speed*difficulty[currentDiff]["speedModifier"];
                     }
@@ -1342,8 +1373,8 @@ function tankHandler () {
                 let t = Math.sqrt((-2*(Xd+Yd))/Fg);
                 let Vy = Xd/t;
                 let Vx = Vy;
-                let Vo = Math.sqrt(Vx*Vx+Vy*Vy);
-                if (tank.shellType == "HE") {shells.push(new Shell(x1, y1, elevation, Vo, 20, 40, 60, 0));}
+                let Vo = Math.sqrt(Vx*Vx+Vy*Vy);Shell()
+                if (tank.shellType == "HE") {shells.push(new Shell(x1, y1, elevation, Vo, 20, 40, 40, 0));}
                 if (tank.shellType == "AP") {shells.push(new Shell(x1, y1, elevation, Vo, 10, 75, 5, 0));}
                 
                 playAudio(tankFireSrc);
