@@ -63,8 +63,8 @@ var hudValues = {health:null, ammo:null};
 var score = 0;
 var topScore = getCookie("highScore", 0, true);
 var coins = getCookie("coins", 0, true);
-var tipIndex = getCookie("tipindex", 0, true)
-var currentDiff = 1;
+var tipIndex = getCookie("tipindex", 0, true);
+var currentDiff = getCookie("difficulty", 1, true);
 const diffIndex = ["Easy", "Med", "Hard"];
 var displayControls = false;
     
@@ -91,7 +91,7 @@ const redTankImg = new Image();
 redTankImg.src = "https://raw.githubusercontent.com/CrazyMeowCows/TankSimulator/main/RedTank.png";
 redTankImg.crossOrigin = "Anonymous";
     
-var skinIndex = 0;
+var skinIndex = getCookie("selectedSkin", 0, true);
 const skins = [earthtoneTankImg, camoTankImg, redTankImg];       
 
 var aiTankImg = new Image();
@@ -940,18 +940,22 @@ function toggleDisplayControls () {
 
 function incSkin () {
     skinIndex = Math.min(skinIndex+1, 2);
+    setCookie("selectedSkin", skinIndex);
 }
 
 function decSkin () {
     skinIndex = Math.max(skinIndex-1, 0);
+    setCookie("selectedSkin", skinIndex);
 }
 
 function incDiff () {
     currentDiff = Math.min(currentDiff+1, 2);
+    setCookie("difficulty", currentDiff);
 }
 
 function decDiff () {
     currentDiff = Math.max(currentDiff-1, 0);
+    setCookie("difficulty", currentDiff);
 }
 
 function selectHE () { //Has to be two seperate functions as they're called through buttons
@@ -1023,7 +1027,7 @@ function restart () {
     coins += Math.round(score);
     setCookie("coins", coins)
     setHighScore();
-    
+        
     centerRestart.enabled = false;
     bottomRightPause.enabled = true;
     bottomRightRestart.enabled = false;
