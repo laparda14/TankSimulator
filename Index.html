@@ -1,6 +1,10 @@
 <!DOCTYPE html>
 <html>
-<head><title>TinyTanks.us</title></head>
+<head>
+<title>TinyTanks.us</title>
+<link rel="shortcut icon" href="https://raw.githubusercontent.com/CrazyMeowCows/TankSimulator/main/favicon.ico">
+</head>
+
 
 <body>
 <canvas id="canvas" width="0" height="0"></canvas>    
@@ -27,7 +31,7 @@ const Fg = -500; //Force of gravity
 const year = new Date().getFullYear();
 const objFg = 1;
 const maxPlayerHealth = 200;
-const difficulty = [{"speedModifier": 1.2, "damageModifier": 1.3}, {"speedModifier": 1, "damageModifier": 1}, {"speedModifier": 1, "damageModifier": 0.7}];
+const difficulty = [{"speedModifier": 1.2, "damageModifier": 1.3, "forceSpawn": 1000, "crateChance": 9000}, {"speedModifier": 1, "damageModifier": 1, "forceSpawn": 700, "crateChance": 12000}, {"speedModifier": 1, "damageModifier": 0.7, "forceSpawn": 600, "crateChance": 14000}];
 const tips = ["Make sure to stop to shoot accurately", "Get ammo by killing enemy tanks", "Tanks create a large explosion when killed", "HE shells are slow and deal splash damage", "AP shells are fast but require more accuracy", "Use your artillery strikes wisely", "The higher your score, the more coins you earn!"]
 
 var gameState = "menu";
@@ -265,7 +269,7 @@ function shellHandler () {
                 tanks.forEach(tank => {
                     let effectiveDist = Math.max(getDist(tank.x, tank.y, x, y)-shell.damageRadius, 0); //Calculate effective distance based off damage radius
                     let modifier = difficulty[currentDiff]["damageModifier"]
-                    if (tank.constructor.name == "playerTank") {modifier = 1;}
+                    if (tank.constructor.name == "playerTank") {modifier = 2-modifier;}
                     tank.health -= Math.max(shell.damage-effectiveDist, 0)*modifier; //Damage tanks based on proximity to shell hit
                 });
                 for (a = 0; a <= pi; a += pi/10) {
@@ -1445,11 +1449,11 @@ function generatePoint (addAI) {
         forceSpawnTank++;
         forceSpawnCrate++;
         score += 0.01;
-        if (Math.round(Math.random()*1200) == 69 || forceSpawnTank >= 700) {
+        if (Math.round(Math.random()*1200) == 69 || forceSpawnTank >= difficulty[currentDiff]["forceSpawn"]) {
             forceSpawnTank = 0;
             tanks.push(new aiTank(w-50, 175, 100, 50, w-200, 50, 100, getRandomShellType(), aiTankImg));
         }
-        if (Math.round(Math.random()*12000) == 69 || forceSpawnCrate >= 8000) {
+        if (Math.round(Math.random()*difficulty[currentDiff]["crateChance"]) == 69 || forceSpawnCrate >= 7000) {
             forceSpawnCrate = 0;
             objects.push(new Object("healthCrate", rand(w/2, w), -25, 50, 50, 0, 0, true, healthCrate));
         }
