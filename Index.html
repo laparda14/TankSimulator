@@ -123,6 +123,7 @@ var speed = 2;
 //Audio Definitions
 var tankFireSrc = 'https://github.com/CrazyMeowCows/TankSimulator/blob/main/TankFire.mp3?raw=true';
 var tankExplodeSrc = 'https://github.com/CrazyMeowCows/TankSimulator/blob/main/TankExplode.mp3?raw=true';
+var shellImpact = 'https://github.com/CrazyMeowCows/TankSimulator/blob/main/ShellImpact.mp3?raw=true';
 var mute = (getCookie("muted", false, false) == "true");
 var sounds = [];
 
@@ -265,6 +266,7 @@ function shellHandler () {
             let white = (red+green+blue) > 550;
             if (!(red == 135 && green == 206 && blue == 235) && !white && y > 1) { //Detect if shell is not in the sky (hit something)
                 craterMath(x, y, r, 10);
+                playAudio(shellImpact);
                 explosions.push(new Explosion(x, y, r, 2)); //Create explosions based off shell explosion radius on hit
                 tanks.forEach(tank => {
                     let effectiveDist = Math.max(getDist(tank.x, tank.y, x, y)-shell.damageRadius, 0); //Calculate effective distance based off damage radius
