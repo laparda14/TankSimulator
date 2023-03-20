@@ -263,8 +263,8 @@ function shellHandler () {
             let color = ctx.getImageData(x, y, 1, 1).data; //Get pixel data for the center of the shell, before the shell itself is drawn
             let red = color[0];
             let green = color[1];
-            let blue = color[2];
-            let white = (red+green+blue) > 550;
+            let blue = color[2];    
+            let white = (red + green + blue) >= 450;
             let scale = Math.max(1-dayTime, 0.7);
             let sky = getSkyColor();
             if (!(red == sky[0] && green == sky[1] && blue == sky[2]) && !white && y > 1) { //Detect if shell is not in the sky (hit something)
@@ -275,7 +275,11 @@ function shellHandler () {
                     let effectiveDist = Math.max(getDist(tank.x, tank.y, x, y)-shell.damageRadius, 0); //Calculate effective distance based off damage radius
                     let modifier = difficulty[currentDiff]["damageModifier"]
                     if (tank.constructor.name == "playerTank") {modifier = 2-modifier;}
-                    tank.health -= Math.max(shell.damage-effectiveDist, 0)*modifier; //Damage tanks based on proximity to shell hit
+                    let damage = Math.max(shell.damage-effectiveDist, 0)*modifier
+                    if (damage > 0) {
+                        tank.health -= damage; //Damage tanks based on proximity to shell hit
+                        objects.push(new txtObject("damage", tank.x+tank.w/2, tank.y-20, 50, 50, 4, -4, false, "-" + Math.ceil(damage), "red", 25));
+                    }
                 });
                 for (a = 0; a <= pi; a += pi/10) {
                     particles.push(new Particle(x, y, a, Math.random()*10, "black", 5, 5, true)); //Draw hemispere of shrapnel from shell hit
@@ -893,7 +897,7 @@ function drawMenu () {
     
     
 //Logic----------------------------------------------------------------------------------------------------------------    
-function Object (name, x, y, width, height, xVel, yVel, gravity, img) {
+function imgObject (name, x, y, width, height, xVel, yVel, gravity, img, lifetime) {
     this.name = name;
     this.x = x;
     this.y = y;
@@ -903,22 +907,54 @@ function Object (name, x, y, width, height, xVel, yVel, gravity, img) {
     this.yVel = yVel;
     this.gravity = gravity;
     this.img = img;
+    this.lifetime = lifetime;
+    this.counter = 0;
+}
+function txtObject (name, x, y, width, height, xVel, yVel, gravity, text, color, lifetime) {
+    this.name = name;
+    this.x = x;
+    this.y = y;
+    this.w = width;
+    this.h = height;
+    this.xVel = xVel;
+    this.yVel = yVel;
+    this.gravity = gravity;
+    this.text = text;
+    this.color = color;
+    this.lifetime = lifetime;
+    this.counter = 0;
 }  
 
 function objectHandler () {
     objects.forEach(object => {
         if (gameState != "paused") {
+            if (object.lifetime != null) {
+                object.counter++;
+            }
+            if (object.counter >= object.lifetime) {
+                objects.splice(objects.indexOf(object), 1);
+            }
+            
             if (object.gravity) {object.yVel += objFg;}
             object.x += object.xVel;        
             object.y += object.yVel;
 
-            if (object.y+object.h/2 > terrain[Math.round(object.x)]) {
+            if (object.y+object.h/2 > terrain[Math.round(object.x)] && object.gravity) {
                 object.y = terrain[Math.round(object.x)]-object.h/2;
                 object.yVel = 0;
             }
         }
 
-        ctx.drawImage(object.img, object.x-object.w/2, object.y-object.h/2, object.w, object.h);
+        if (object.constructor.name == "imgObject") {
+            ctx.drawImage(object.img, object.x-object.w/2, object.y-object.h/2, object.w, object.h);
+        } else {
+            ctx.globalAlpha = 1-object.counter/object.lifetime;
+            ctx.fillStyle = object.color;
+            ctx.font = "bold "+object.h+"px Courier New";
+            ctx.textAlign = "center";
+            ctx.fillText(object.text, object.x, object.y-object.h/2)
+            ctx.globalAlpha = 1;
+        }
     });
 }
 
@@ -1051,7 +1087,7 @@ function restart () {
     controlsMenu.enabled = false;
     
     gameState = "running";
-    dayTime = Math.random();
+    dayTime = 1-Math.min(Math.random()+Math.random(), 1);
     tMomentum = 0;
     tY = h/2;
     terrain = [];
@@ -1283,7 +1319,7 @@ function tankHandler () {
         
         if (tank.constructor.name == "playerTank") {
             objects.forEach(object => {
-                if (Math.abs(object.x-x) < width && Math.abs(object.y-y) < height) {
+                if (Math.abs(object.x-x) < width && Math.abs(object.y-y) < height && object.name == "healthCrate") {
                     tank.health = Math.min(tank.health+75, maxPlayerHealth);
                     objects.splice(objects.indexOf(object), 1);
                 }
@@ -1297,13 +1333,13 @@ function tankHandler () {
                     if (Math.random() > tank.health/200) {
                         color = "rgb("+rand(200, 255)+","+rand(0, 165)+",0"
                     }
-                    particles.push(new Particle(x-Math.cos(a)*(width-17), y+Math.sin(a)*(width-17), a+pi/2+rand(-0.13, 0.13), rand(2, 3), color, 7.5, rand(15, 25), false));
+                    particles.push(new Particle(x-Math.cos(a-0.4)*(width-15), y+Math.sin(a-0.4)*(width-15), a+pi/2+rand(-0.13, 0.13), rand(2, 3), color, 7.5, rand(15, 25), false));
                 }
                 
                 if (keys["left"] && x > width+speed) {
                     tank.x -= speed*difficulty[currentDiff]["speedModifier"];    
                     innacuracy += (Math.random()-0.5);
-                    particles.push(new Particle(rightX, rightY, a+pi/4, Math.random()*5, "saddlebrown", 3, 5, true));
+                    particles.push(new Particle(rightX+Math.cos(a)*2, rightY-Math.sin(a)*2+3, a+pi/4, Math.random()*5, "saddlebrown", 3, 5, true));
                 }
                 else if (keys["right"]) {
                     if (x < w/2) {
@@ -1327,7 +1363,7 @@ function tankHandler () {
                         });
                     }
                     innacuracy += (Math.random()-0.5);
-                    particles.push(new Particle(leftX, leftY, a+3*pi/4, Math.random()*5, "saddlebrown", 3, 5, true));
+                    particles.push(new Particle(leftX-Math.cos(a)*2, leftY+Math.sin(a)*2+3, a+3*pi/4, Math.random()*5, "saddlebrown", 3, 5, true));
                 }
 
                 if (keys["up"] && tank.elv < pi+0.07) {
@@ -1366,17 +1402,17 @@ function tankHandler () {
                     if (Math.random() > tank.health/100) {
                         color = "rgb("+rand(200, 255)+","+rand(0, 165)+",0"
                     }
-                    particles.push(new Particle(x+Math.cos(a)*(width-17), y-Math.sin(a)*(width-17), a+pi/2+rand(-0.13, 0.13), rand(2, 3), color, 7.5, rand(15, 25), false));
+                    particles.push(new Particle(x+Math.cos(a+0.4)*(width-15), y-Math.sin(a+0.4)*(width-15), a+pi/2+rand(-0.13, 0.13), rand(2, 3), color, 7.5, rand(15, 25), false));
                 }
                 
                 if (tank.reload > 15 && getDist(x, 0, tank.pathX, 0) > 10 && gameState != "paused") {
                     if (x - tank.pathX < 0 && x < w-width-100) {
                         tank.x += speed/1.5;
-                        particles.push(new Particle(leftX, leftY, a+3*pi/4, Math.random()*5, "saddlebrown", 3, 5, true));
+                        particles.push(new Particle(leftX-Math.cos(a)*2, leftY+Math.sin(a)*2+3, a+3*pi/4, Math.random()*5, "saddlebrown", 3, 5, true));
                     }
                     else if (x - tank.pathX > 0 && x > width+10) {
                         tank.x -= speed/1.5;
-                        particles.push(new Particle(rightX, rightY, a+pi/4, Math.random()*5, "saddlebrown", 3, 5, true));
+                        particles.push(new Particle(rightX+Math.cos(a)*2, rightY-Math.sin(a)*2+3, a+pi/4, Math.random()*5, "saddlebrown", 3, 5, true));
                     }
                 }
 
@@ -1423,8 +1459,14 @@ function tankHandler () {
             for (a = 0; a <= pi; a += pi/20) {
                 particles.push(new Particle(x, y, a, Math.random()*30, "black", 7.5, 15, true));
             }
-            tanks.forEach(tank => {
-                tank.health -= Math.max(200-getDist(tank.x, tank.y, x, y), 0);
+            tanks.forEach(tank2 => {
+                if (tank2 != tank) {
+                    let damage = Math.max(200-getDist(tank2.x, tank2.y, x, y), 0);
+                    if (damage > 0) {
+                        tank.health -= damage; //Damage tanks based on proximity to explosion
+                        objects.push(new txtObject("damage", tank2.x+tank2.w/2, tank2.y-20, 50, 50, 4, -4, false, "-" + Math.ceil(damage), "red", 25));
+                    }
+                }
             });
             
             tanks.splice(tanks.indexOf(tank), 1);
@@ -1476,7 +1518,7 @@ function generatePoint (addAI) {
         }
         if (Math.round(Math.random()*difficulty[currentDiff]["crateChance"]) == 69 || forceSpawnCrate >= 7000) {
             forceSpawnCrate = 0;
-            objects.push(new Object("healthCrate", rand(w/2, w), -25, 50, 50, 0, 0, true, healthCrate));
+            objects.push(new imgObject("healthCrate", rand(w/2, w), -25, 50, 50, 0, 0, true, healthCrate));
         }
     }
 }    
@@ -1515,7 +1557,7 @@ function generateCloud (initial, fullscreen) {
 }
     
 function getSkyColor () {
-    let scale = Math.max(1-dayTime, 0.7);
+    let scale = Math.max(1-dayTime, 0.8);
     return [Math.round(135*scale), Math.round(206*scale), Math.round(235*scale)];
 }    
     
@@ -1524,7 +1566,6 @@ function drawBackground () {
     if (gameState != "menu") {
         let color = getSkyColor();
         ctx.fillStyle = "rgb("+color[0]+","+color[1]+","+color[2]+")";
-        if (Math.random() > 0.95) {alert("Sky: " + 135*scale);}
     } else {
         ctx.fillStyle = "skyblue";
     }
@@ -1580,10 +1621,10 @@ function run () {
             gameLogic();
             drawBackground();
             objectHandler();
-            particleRenderer();
             tankHandler();
             drawTerrain();
             shellHandler();  
+            particleRenderer();
             daytimeOverlay();
             explosionHandler();
             overlay();
