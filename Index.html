@@ -14,7 +14,7 @@
 <script>   
 //Canvas Setup and sizing
 var canvas = document.getElementById('canvas'),
-ctx = canvas.getContext('2d');
+ctx = canvas.getContext("2d", { willReadFrequently: true });
 
 canvas.width = Math.max(window.innerWidth-16, 1096);    
 canvas.height = Math.max(window.innerHeight-21, 550);    
@@ -54,6 +54,7 @@ var clouds = [];
 for (c = 0; c < 7; c++) {
     generateCloud(true, true);
 }
+var dayTime = Math.random();
     
 //Particle Definitions
 var particles = [];
@@ -264,7 +265,9 @@ function shellHandler () {
             let green = color[1];
             let blue = color[2];
             let white = (red+green+blue) > 550;
-            if (!(red == 135 && green == 206 && blue == 235) && !white && y > 1) { //Detect if shell is not in the sky (hit something)
+            let scale = Math.max(1-dayTime, 0.7);
+            let sky = getSkyColor();
+            if (!(red == sky[0] && green == sky[1] && blue == sky[2]) && !white && y > 1) { //Detect if shell is not in the sky (hit something)
                 craterMath(x, y, r, 10);
                 playAudio(shellImpact);
                 explosions.push(new Explosion(x, y, r, 2)); //Create explosions based off shell explosion radius on hit
@@ -275,7 +278,7 @@ function shellHandler () {
                     tank.health -= Math.max(shell.damage-effectiveDist, 0)*modifier; //Damage tanks based on proximity to shell hit
                 });
                 for (a = 0; a <= pi; a += pi/10) {
-                    particles.push(new Particle(x, y, a, Math.random()*10, "black", 5, 5)); //Draw hemispere of shrapnel from shell hit
+                    particles.push(new Particle(x, y, a, Math.random()*10, "black", 5, 5, true)); //Draw hemispere of shrapnel from shell hit
                 }
 
                 shells.splice(shells.indexOf(shell), 1); //Removes shell from the array
@@ -978,8 +981,8 @@ function setHighScore () {
     if (score > topScore) {
         topScore = score;
         setCookie("highScore", topScore)
-        score = 0;
     }
+    score = 0;
 }
 
 function toggleMute () {
@@ -1048,6 +1051,7 @@ function restart () {
     controlsMenu.enabled = false;
     
     gameState = "running";
+    dayTime = Math.random();
     tMomentum = 0;
     tY = h/2;
     terrain = [];
@@ -1059,7 +1063,6 @@ function restart () {
         generateCloud(true, false);
     } 
     hudValues = {health:null, ammo:null};   
-    score = 0;
     shells = [];
     particles = [];
     objects = [];
@@ -1075,7 +1078,6 @@ function restart () {
 //Switch to and from menu screen
 function toggleMenu () {
     if (gameState == "menu") { //Starting Gameplay
-        score = 0;
         restart();
     }
     else {
@@ -1151,14 +1153,12 @@ function death () {
     artillery.enabled = false;
     shellSelectHE.enabled = false;
     shellSelectAP.enabled = false;
-    
-    setHighScore();
 }
 
     
 //Particles------------------------------------------------------------------------------------------------------------
 //Particle Constructor
-function Particle (x, y, angle, vel, color, size, lifetime) {
+function Particle (x, y, angle, vel, color, size, lifetime, gravity) {
     this.x = x;
     this.y = y;
     this.Vx = Math.cos(-angle)*vel;
@@ -1167,6 +1167,7 @@ function Particle (x, y, angle, vel, color, size, lifetime) {
     this.size = size;
     this.maxLife = lifetime;
     this.life = 0;
+    this.gravity = gravity;
 }
 
 //Drawing particles and performing physics on them
@@ -1178,7 +1179,7 @@ function particleRenderer () {
         
         if (gameState != "paused") {
             particle.x += particle.Vx;
-            particle.Vy -= Fg/500;
+            if (particle.gravity) {particle.Vy -= Fg/500;}
             particle.y += particle.Vy;
             
             particle.life++;
@@ -1291,13 +1292,19 @@ function tankHandler () {
             let innacuracy = 0;
             
             if (gameState != "paused") {
-//                if (keys["left"] && x > width+speed && terrain[Math.round(x-width-8)]-terrain[Math.round(x-width-speed*3-8)] < width) {
+                if (Math.random() > 0.8) {
+                    let color = "gray";
+                    if (Math.random() > tank.health/200) {
+                        color = "rgb("+rand(200, 255)+","+rand(0, 165)+",0"
+                    }
+                    particles.push(new Particle(x-Math.cos(a)*(width-17), y+Math.sin(a)*(width-17), a+pi/2+rand(-0.13, 0.13), rand(2, 3), color, 7.5, rand(15, 25), false));
+                }
+                
                 if (keys["left"] && x > width+speed) {
                     tank.x -= speed*difficulty[currentDiff]["speedModifier"];    
                     innacuracy += (Math.random()-0.5);
-                    particles.push(new Particle(rightX, rightY, a+pi/4, Math.random()*5, "saddlebrown", 3, 5));
+                    particles.push(new Particle(rightX, rightY, a+pi/4, Math.random()*5, "saddlebrown", 3, 5, true));
                 }
-//                else if (keys["right"] && terrain[Math.round(x+width+8)]-terrain[Math.round(x+width+speed*3+8)] < width) { //Don't let the player climb sheer cliffs via elevation delta in front of the tank
                 else if (keys["right"]) {
                     if (x < w/2) {
                         tank.x += speed*difficulty[currentDiff]["speedModifier"];
@@ -1320,7 +1327,7 @@ function tankHandler () {
                         });
                     }
                     innacuracy += (Math.random()-0.5);
-                    particles.push(new Particle(leftX, leftY, a+3*pi/4, Math.random()*5, "saddlebrown", 3, 5));
+                    particles.push(new Particle(leftX, leftY, a+3*pi/4, Math.random()*5, "saddlebrown", 3, 5, true));
                 }
 
                 if (keys["up"] && tank.elv < pi+0.07) {
@@ -1354,14 +1361,22 @@ function tankHandler () {
             let elevation = 3*pi/4; //Set default elevation for the AI tank
             
             if (tanks[0].constructor.name == "playerTank") { //Check if the player is still alive
+                if (Math.random() > 0.8) {
+                    let color = "gray";
+                    if (Math.random() > tank.health/100) {
+                        color = "rgb("+rand(200, 255)+","+rand(0, 165)+",0"
+                    }
+                    particles.push(new Particle(x+Math.cos(a)*(width-17), y-Math.sin(a)*(width-17), a+pi/2+rand(-0.13, 0.13), rand(2, 3), color, 7.5, rand(15, 25), false));
+                }
+                
                 if (tank.reload > 15 && getDist(x, 0, tank.pathX, 0) > 10 && gameState != "paused") {
                     if (x - tank.pathX < 0 && x < w-width-100) {
                         tank.x += speed/1.5;
-                        particles.push(new Particle(leftX, leftY, a+3*pi/4, Math.random()*5, "saddlebrown", 3, 5));
+                        particles.push(new Particle(leftX, leftY, a+3*pi/4, Math.random()*5, "saddlebrown", 3, 5, true));
                     }
                     else if (x - tank.pathX > 0 && x > width+10) {
                         tank.x -= speed/1.5;
-                        particles.push(new Particle(rightX, rightY, a+pi/4, Math.random()*5, "saddlebrown", 3, 5));
+                        particles.push(new Particle(rightX, rightY, a+pi/4, Math.random()*5, "saddlebrown", 3, 5, true));
                     }
                 }
 
@@ -1406,7 +1421,7 @@ function tankHandler () {
             explosions.push(new Explosion(x, y, width*2, 5));
             craterMath(x, y, width*2, 50);
             for (a = 0; a <= pi; a += pi/20) {
-                particles.push(new Particle(x, y, a, Math.random()*30, "black", 7.5, 15));
+                particles.push(new Particle(x, y, a, Math.random()*30, "black", 7.5, 15, true));
             }
             tanks.forEach(tank => {
                 tank.health -= Math.max(200-getDist(tank.x, tank.y, x, y), 0);
@@ -1414,7 +1429,7 @@ function tankHandler () {
             
             tanks.splice(tanks.indexOf(tank), 1);
         }
-
+        
         //Drawing gun barrel
         ctx.lineWidth = 5;
         ctx.strokeStyle = "black";
@@ -1494,13 +1509,25 @@ function generateCloud (initial, fullscreen) {
     for (i = 0; i <= pi; i += pi/(10)) {
         cloud.push(Math.cos(i)*(Math.random()*50+100));
         cloud.push(Math.sin(i)*(Math.random()*25+50));
-    }    
+    }
+    cloud.push(rand(200, 255));
     clouds.push(cloud);
 }
-
+    
+function getSkyColor () {
+    let scale = Math.max(1-dayTime, 0.7);
+    return [Math.round(135*scale), Math.round(206*scale), Math.round(235*scale)];
+}    
+    
 //Drawing Background and Clouds
 function drawBackground () {
-    ctx.fillStyle = "skyblue";
+    if (gameState != "menu") {
+        let color = getSkyColor();
+        ctx.fillStyle = "rgb("+color[0]+","+color[1]+","+color[2]+")";
+        if (Math.random() > 0.95) {alert("Sky: " + 135*scale);}
+    } else {
+        ctx.fillStyle = "skyblue";
+    }
     ctx.fillRect(0, 0, w, h);
     
     ctx.fillStyle = "white";
@@ -1508,15 +1535,17 @@ function drawBackground () {
         let cloud = clouds[c];
         let x = cloud[0];
         let y = cloud[1];
+        let color = cloud[cloud.length-1];
+        ctx.fillStyle = "rgb("+color+","+color+","+color+")";
         ctx.beginPath(); 
         ctx.moveTo(x+cloud[2], y+r);
-        for (i = 4; i < cloud.length-2; i += 2) {
+        for (i = 4; i < cloud.length-3; i += 2) {
             ctx.lineTo(x+cloud[i], y-cloud[i+1]);
         }    
-        ctx.lineTo(x+cloud[cloud.length-2], y+r);
+        ctx.lineTo(x+cloud[cloud.length-3], y+r);
         ctx.fill();
 
-        for (i = 2; i < cloud.length; i += 2) {
+        for (i = 2; i < cloud.length-1; i += 2) {
             ctx.beginPath(); 
             ctx.arc(x+cloud[i], y-cloud[i+1], r, 0, pi*2, false);
             ctx.fill();
@@ -1534,6 +1563,14 @@ function drawBackground () {
         }
     }
 }
+    
+//Darkening screen at night
+function daytimeOverlay () {
+    ctx.fillStyle = "black";
+    ctx.globalAlpha = dayTime*0.8;
+    ctx.fillRect(0, 0, w, h);
+    ctx.globalAlpha = 1;
+}
 
     
 //Main Game Loop-------------------------------------------------------------------------------------------------------   
@@ -1542,11 +1579,12 @@ function run () {
         if (gameState != "menu") {
             gameLogic();
             drawBackground();
-            particleRenderer();
             objectHandler();
+            particleRenderer();
             tankHandler();
             drawTerrain();
             shellHandler();  
+            daytimeOverlay();
             explosionHandler();
             overlay();
             drawButtons();
