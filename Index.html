@@ -1460,10 +1460,10 @@ function tankHandler () {
                 particles.push(new Particle(x, y, a, Math.random()*30, "black", 7.5, 15, true));
             }
             tanks.forEach(tank2 => {
-                if (tank2 != tank) {
-                    let damage = Math.max(200-getDist(tank2.x, tank2.y, x, y), 0);
-                    if (damage > 0) {
-                        tank.health -= damage; //Damage tanks based on proximity to explosion
+                let damage = Math.max(200-getDist(tank2.x, tank2.y, x, y), 0);
+                if (damage > 0) {
+                    tank.health -= damage; //Damage tanks based on proximity to explosion
+                    if (tank2 != tank) {
                         objects.push(new txtObject("damage", tank2.x+tank2.w/2, tank2.y-20, 50, 50, 4, -4, false, "-" + Math.ceil(damage), "red", 25));
                     }
                 }
