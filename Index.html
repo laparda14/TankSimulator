@@ -1434,7 +1434,7 @@ function tankHandler () {
                 let t = Math.sqrt((-2*(Xd+Yd))/Fg);
                 let Vy = Xd/t;
                 let Vx = Vy;
-                let Vo = Math.sqrt(Vx*Vx+Vy*Vy);Shell()
+                let Vo = Math.sqrt(Vx*Vx+Vy*Vy);
                 if (tank.shellType == "HE") {shells.push(new Shell(x1, y1, elevation, Vo, 20, 40, 40, 0));}
                 if (tank.shellType == "AP") {shells.push(new Shell(x1, y1, elevation, Vo, 10, 75, 5, 0));}
                 
